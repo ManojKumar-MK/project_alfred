@@ -102,9 +102,9 @@ class LiveHub:
     async def serve(self, websocket: WebSocket) -> None:
         """Send the current snapshot, then keep the client subscribed until it leaves."""
         await websocket.accept()
-        await websocket.send_text(await self._current_payload())
-        self.clients.add(websocket)
         try:
+            await websocket.send_text(await self._current_payload())
+            self.clients.add(websocket)
             while True:
                 message = await websocket.receive_text()
                 with contextlib.suppress(ValueError):
