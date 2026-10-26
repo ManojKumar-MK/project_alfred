@@ -19,6 +19,7 @@ from fastapi.staticfiles import StaticFiles
 import alfred_ui
 from alfred_ui import actions, artifacts, configedit, doctor, gitinfo, schemas
 from alfred_ui.live import LiveHub
+from alfred_ui.pipelines import PipelineRunner
 from alfred_ui.reporting import build_reports
 from alfred_ui.security import AccessGuard, TokenPolicy
 from alfred_ui.snapshot import build_task_detail, describe_session
@@ -42,6 +43,7 @@ def create_app(
     inspector: TmuxInspector | None = None,
     hub: LiveHub | None = None,
     updater: Updater | None = None,
+    runner: PipelineRunner | None = None,
 ) -> FastAPI:
     """Create the UI application for one workspace context."""
     tokens = policy or TokenPolicy(token=None)
@@ -49,6 +51,7 @@ def create_app(
     tmux = inspector or TmuxInspector()
     live = hub or LiveHub(context, tmux)
     terminals = TerminalBridge(tmux)
+    pipelines = runner or PipelineRunner()
 
     @contextlib.asynccontextmanager
     async def lifespan(_: FastAPI) -> AsyncIterator[None]:
@@ -446,6 +449,71 @@ def create_app(
     @app.post("/api/tasks/{number}/worktrees/remove")
     def remove_worktrees(number: int, body: schemas.RemoveWorktreesBody) -> dict[str, Any]:
         return mutate(lambda current: actions.remove_worktrees(current, number, body))
+
+    # Review -----------------------------------------------------------------------------------
+
+    @app.get("/api/tasks/{number}/review")
+    def review(number: int) -> dict[str, Any]:
+        return actions.review_document(services(), number)
+
+    @app.post("/api/tasks/{number}/review/comments")
+    def add_review_comment(number: int, body: schemas.ReviewCommentBody) -> dict[str, Any]:
+        return mutate(lambda current: actions.add_review_comment(current, number, body))
+
+    @app.post("/api/tasks/{number}/review/comments/{comment_id}")
+    def update_review_comment(
+        number: int, comment_id: str, body: schemas.ReviewCommentUpdateBody
+    ) -> dict[str, Any]:
+        return mutate(
+            lambda current: actions.update_review_comment(current, number, comment_id, body)
+        )
+
+    @app.post("/api/tasks/{number}/review/comments/{comment_id}/delete")
+    def delete_review_comment(number: int, comment_id: str) -> dict[str, Any]:
+        return mutate(lambda current: actions.delete_review_comment(current, number, comment_id))
+
+    @app.post("/api/tasks/{number}/review/approve")
+    def approve_review(number: int, body: schemas.ReviewDecisionBody) -> dict[str, Any]:
+        return mutate(lambda current: actions.approve_review(current, number, body))
+
+    @app.post("/api/tasks/{number}/review/request-changes")
+    def request_review_changes(number: int, body: schemas.ReviewDecisionBody) -> dict[str, Any]:
+        return mutate(lambda current: actions.request_review_changes(current, tmux, number, body))
+
+    # Pipelines --------------------------------------------------------------------------------
+
+    @app.get("/api/pipelines")
+    def pipelines_config() -> dict[str, Any]:
+        return actions.pipelines_config(services())
+
+    @app.post("/api/pipelines/validate")
+    def validate_pipelines(body: schemas.PipelinesConfigBody) -> dict[str, Any]:
+        return actions.validate_pipelines(services(), body)
+
+    @app.put("/api/pipelines")
+    def save_pipelines(body: schemas.PipelinesConfigBody) -> dict[str, Any]:
+        return mutate(lambda current: actions.save_pipelines(current, body))
+
+    @app.get("/api/tasks/{number}/pipelines")
+    def task_pipelines(number: int) -> dict[str, Any]:
+        return actions.task_pipelines(services(), pipelines, number)
+
+    @app.post("/api/tasks/{number}/pipelines")
+    def start_pipeline(number: int, body: schemas.ActorBody) -> dict[str, Any]:
+        return mutate(
+            lambda current: actions.start_pipeline(current, pipelines, number, body, live.poke)
+        )
+
+    @app.post("/api/tasks/{number}/pipelines/{run_id}/cancel")
+    def cancel_pipeline(number: int, run_id: str) -> dict[str, Any]:
+        run = pipelines.cancel(services().config, number, run_id)
+        return {"ok": True, "message": f"Cancelling pipeline {run_id}", "run": run}
+
+    @app.get("/api/tasks/{number}/pipelines/{run_id}/steps/{index}/log")
+    def pipeline_log(
+        number: int, run_id: str, index: int, offset: int = Query(default=0, ge=0)
+    ) -> dict[str, Any]:
+        return pipelines.log(services().config, number, run_id, index, offset)
 
     # Tracker, knowledge, coordinator, learner, notifications ------------------------------------
 

@@ -8,9 +8,11 @@ force, and sessions owned by an active run must be stopped through the run.
 """
 
 import sys
+from collections.abc import Callable
 from pathlib import Path
 from typing import Any
 
+from alfred.adapters.process import SubprocessRunner
 from alfred.application.skills import MAX_SKILL_BYTES
 from alfred.bootstrap import AlfredServices
 from alfred.config.initializer import initialize_workspace
@@ -26,9 +28,19 @@ from alfred.domain.constants import (
     TaskType,
     WorktreeMode,
 )
-from alfred.domain.models import Task
+from alfred.domain.models import MergeRequestOptions, Task
+from alfred.utils.files import atomic_write_text
 
 from alfred_ui import schemas
+from alfred_ui.pipelines import (
+    EXAMPLE,
+    PipelineRunner,
+    PipelineStep,
+    load_steps,
+    parse_steps,
+    pipelines_path,
+)
+from alfred_ui.review import ReviewStore, feedback_message
 from alfred_ui.snapshot import describe_session
 from alfred_ui.tmux_inspector import SessionInfo, TmuxInspector
 from alfred_ui.transcripts import TranscriptStore
@@ -368,15 +380,129 @@ def commit_worktrees(services: AlfredServices, number: int, body: schemas.Commit
 
 def push_worktrees(services: AlfredServices, number: int, body: schemas.PushBody) -> Result:
     """``alfred worktree push``: the only operation that mutates a remote."""
-    results = services.commits.push(number, repository=body.repo.strip() or None)
+    merge_request = None
+    if body.merge_request:
+        title = body.title.strip() or services.tasks.require(number).title
+        merge_request = MergeRequestOptions(title=title, description=body.description)
+    results = services.commits.push(
+        number, repository=body.repo.strip() or None, merge_request=merge_request
+    )
+    links = [
+        {"repository": item.repository, "branch": item.branch, "url": item.review_url}
+        for item in results
+        if item.review_url
+    ]
+    if links:
+        ReviewStore.for_config(services.config).add_links(number, links)
+    messages = [
+        f"{item.repository}: pushed {item.branch} to {item.remote}"
+        + (f" ({item.review_url})" if item.review_url else "")
+        for item in results
+    ]
     return _result(
-        "; ".join(f"{item.repository}: pushed {item.branch} to {item.remote}" for item in results)
-        or "No worktrees to push",
+        "; ".join(messages) or "No worktrees to push",
         pushed=[
-            {"repository": item.repository, "branch": item.branch, "remote": item.remote}
+            {
+                "repository": item.repository,
+                "branch": item.branch,
+                "remote": item.remote,
+                "review_url": item.review_url,
+            }
             for item in results
         ],
     )
+
+
+# Review ------------------------------------------------------------------------------------
+
+
+def review_document(services: AlfredServices, number: int) -> Result:
+    """The task's review comments, last verdict, and merge request links."""
+    services.tasks.require(number)
+    return ReviewStore.for_config(services.config).load(number)
+
+
+def add_review_comment(
+    services: AlfredServices, number: int, body: schemas.ReviewCommentBody
+) -> Result:
+    """Comment on a line of the task's branch."""
+    services.tasks.require(number)
+    comment = ReviewStore.for_config(services.config).add_comment(
+        number,
+        repository=body.repository,
+        path=body.path,
+        line=body.line,
+        side=body.side,
+        body=body.body,
+        author=body.actor,
+    )
+    return _result("Comment added", comment=comment)
+
+
+def update_review_comment(
+    services: AlfredServices, number: int, comment_id: str, body: schemas.ReviewCommentUpdateBody
+) -> Result:
+    """Edit, resolve, or reopen a review comment."""
+    comment = ReviewStore.for_config(services.config).update_comment(
+        number, comment_id, body=body.body, resolved=body.resolved
+    )
+    state = "resolved" if comment["resolved"] else "open"
+    return _result(f"Comment {state}" if body.body is None else "Comment updated", comment=comment)
+
+
+def delete_review_comment(services: AlfredServices, number: int, comment_id: str) -> Result:
+    """Remove a review comment."""
+    ReviewStore.for_config(services.config).delete_comment(number, comment_id)
+    return _result("Comment deleted")
+
+
+def approve_review(
+    services: AlfredServices, number: int, body: schemas.ReviewDecisionBody
+) -> Result:
+    """``alfred task review --decision approved`` from the review screen."""
+    store = ReviewStore.for_config(services.config)
+    open_comments = [item for item in store.load(number)["comments"] if not item["resolved"]]
+    note = body.note.strip() or "Approved in the review screen."
+    task = services.tasks.review(number, "approved", note, actor=body.actor)
+    store.record_verdict(number, "approved", body.actor)
+    suffix = f" with {len(open_comments)} unresolved comment(s)" if open_comments else ""
+    return _result(f"Task {task.task_number} approved{suffix}", task_number=task.task_number)
+
+
+def request_review_changes(
+    services: AlfredServices,
+    inspector: TmuxInspector,
+    number: int,
+    body: schemas.ReviewDecisionBody,
+) -> Result:
+    """Request changes and hand the outstanding comments to the agent.
+
+    A live session receives the feedback as a message. Without one, a finished run is reopened;
+    the review note becomes the task's latest note, which the new execution prompt includes.
+    """
+    store = ReviewStore.for_config(services.config)
+    comments = store.outstanding(number)
+    if not comments and not body.note.strip():
+        raise ValueError("Add a comment or a summary before requesting changes")
+    message = feedback_message(number, comments, body.note)
+    task = services.tasks.review(number, "changes_requested", message, actor=body.actor)
+    active = services.runs.active(number)
+    session = active.session_name if active is not None else ""
+    delivered = True
+    if session and inspector.exists(session):
+        scratch = services.config.runtime.temp_directory / "ui" / "messages"
+        inspector.send_text(session, message, submit=True, scratch_directory=scratch)
+        delivery = f"sent to {session}"
+    elif active is None and task.assigned_agent_alias:
+        run = services.runs.reopen(number, actor=body.actor)
+        delivery = f"reopened {run.session_name or 'a run'} with the feedback"
+    else:
+        delivered = False
+        delivery = "saved; no live session to deliver it to"
+    sent = tuple(item["id"] for item in comments) if delivered else ()
+    store.record_verdict(number, "changes_requested", body.actor, sent=sent)
+    count = f"{len(comments)} comment{'' if len(comments) == 1 else 's'}"
+    return _result(f"Changes requested on task {number}: {count} {delivery}", task_number=number)
 
 
 def remove_worktrees(
@@ -693,3 +819,90 @@ def _safe_capture(
         )
     except (OSError, RuntimeError, ValueError):
         return None
+
+
+# Pipelines ---------------------------------------------------------------------------------
+
+
+def pipelines_config(services: AlfredServices) -> Result:
+    """The pipeline steps file, its parsed steps, and an example to start from."""
+    path = pipelines_path(services.config)
+    exists = path.is_file()
+    return {
+        "path": str(path),
+        "exists": exists,
+        "text": path.read_text(encoding="utf-8") if exists else EXAMPLE,
+        "steps": [_step(step) for step in load_steps(services.config)] if exists else [],
+    }
+
+
+def validate_pipelines(services: AlfredServices, body: schemas.PipelinesConfigBody) -> Result:
+    """Check ``pipelines.toml`` text without saving it."""
+    steps = parse_steps(body.text, _repository_names(services))
+    return _result(
+        f"{len(steps)} step{'' if len(steps) == 1 else 's'}", steps=[_step(s) for s in steps]
+    )
+
+
+def save_pipelines(services: AlfredServices, body: schemas.PipelinesConfigBody) -> Result:
+    """Validate and write ``pipelines.toml``."""
+    steps = parse_steps(body.text, _repository_names(services))
+    atomic_write_text(pipelines_path(services.config), body.text)
+    return _result(f"Saved {len(steps)} pipeline step{'' if len(steps) == 1 else 's'}")
+
+
+def task_pipelines(services: AlfredServices, runner: PipelineRunner, number: int) -> Result:
+    """A task's recent pipeline runs and the steps that would run for its repositories."""
+    task = services.tasks.require(number)
+    # A task that names no repositories works in the ones selected by default.
+    names = set(task.target_repositories) or {
+        item.name for item in services.config.workspace.repositories if item.selected_by_default
+    }
+    steps = [step for step in load_steps(services.config) if step.repository in names]
+    return {
+        "runs": runner.runs(services.config, number),
+        "steps": [_step(step) for step in steps],
+    }
+
+
+def start_pipeline(
+    services: AlfredServices,
+    runner: PipelineRunner,
+    number: int,
+    body: schemas.ActorBody,
+    on_change: Callable[[], None],
+) -> Result:
+    """Run the configured steps in the task's worktrees."""
+    services.tasks.require(number)
+    statuses = services.worktrees.statuses(number)
+    if not statuses:
+        raise ValueError(f"Task {number} has no worktrees to run a pipeline in")
+    process = SubprocessRunner()
+    heads = {
+        status.repository: process.run(
+            ("git", "rev-parse", "--short", "HEAD"), cwd=status.path, check=False
+        ).stdout.strip()
+        for status in statuses
+    }
+    run = runner.start(
+        services.config,
+        number,
+        {status.repository: status.path for status in statuses},
+        heads,
+        actor=body.actor,
+        on_change=on_change,
+    )
+    return _result(f"Pipeline started for task {number}", run=run)
+
+
+def _step(step: PipelineStep) -> dict[str, Any]:
+    return {
+        "repository": step.repository,
+        "name": step.name,
+        "command": list(step.command),
+        "timeout_minutes": step.timeout_minutes,
+    }
+
+
+def _repository_names(services: AlfredServices) -> set[str]:
+    return {repository.name for repository in services.config.workspace.repositories}

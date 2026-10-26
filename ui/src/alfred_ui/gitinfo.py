@@ -85,8 +85,14 @@ def _details(
     repository = next(
         (item for item in config.workspace.repositories if item.name == status.repository), None
     )
-    base = repository.default_branch if repository else ""
     remote = repository.remote if repository else ""
+    base = repository.default_branch if repository else ""
+    # Compare with the remote's default branch when it is known locally, as a merge request
+    # would; a stale local default branch would otherwise count other people's merged work.
+    if base and remote:
+        tracking = f"{remote}/{base}"
+        if git("rev-parse", "--verify", "--quiet", f"refs/remotes/{tracking}").returncode == 0:
+            base = tracking
     changes = _porcelain(git("status", "--porcelain=v1", "-z", "--untracked-files=all").stdout)
     head = git("rev-parse", "--short", "HEAD").stdout.strip()
     subject = git("log", "-1", "--format=%s").stdout.strip()

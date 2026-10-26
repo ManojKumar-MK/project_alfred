@@ -69,3 +69,37 @@ export function parseDiff(text: string): DiffFile[] {
   }
   return files
 }
+
+export interface SplitRow {
+  kind: 'pair' | 'hunk' | 'meta'
+  left: DiffLine | null
+  right: DiffLine | null
+}
+
+/** Pair a file's lines for side-by-side display: removals beside the additions that replace them. */
+export function splitRows(lines: DiffLine[]): SplitRow[] {
+  const rows: SplitRow[] = []
+  let removed: DiffLine[] = []
+  let added: DiffLine[] = []
+  const flush = () => {
+    for (let index = 0; index < Math.max(removed.length, added.length); index += 1) {
+      rows.push({ kind: 'pair', left: removed[index] ?? null, right: added[index] ?? null })
+    }
+    removed = []
+    added = []
+  }
+  for (const line of lines) {
+    if (line.kind === 'remove') {
+      if (added.length) flush()
+      removed.push(line)
+    } else if (line.kind === 'add') {
+      added.push(line)
+    } else {
+      flush()
+      if (line.kind === 'context') rows.push({ kind: 'pair', left: line, right: line })
+      else rows.push({ kind: line.kind, left: line, right: null })
+    }
+  }
+  flush()
+  return rows
+}

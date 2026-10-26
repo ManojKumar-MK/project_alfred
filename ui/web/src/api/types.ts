@@ -515,3 +515,71 @@ export interface ActionResult {
   message: string
   [key: string]: unknown
 }
+
+export interface ReviewComment {
+  id: string
+  repository: string
+  path: string
+  /** ``null`` for a comment on the whole file. */
+  line: number | null
+  side: 'old' | 'new'
+  body: string
+  author: string
+  created_at: string
+  updated_at: string | null
+  resolved: boolean
+  sent_at: string | null
+}
+
+export interface ReviewLink {
+  repository: string
+  branch: string
+  url: string
+  at: string
+}
+
+export interface ReviewDocument {
+  version: number
+  task_number: number
+  comments: ReviewComment[]
+  verdict: { decision: 'approved' | 'changes_requested'; actor: string; at: string } | null
+  links: ReviewLink[]
+}
+
+export type PipelineStatus = 'running' | 'passed' | 'failed' | 'cancelled' | 'interrupted'
+export type PipelineStepStatus = 'pending' | 'running' | 'passed' | 'failed' | 'skipped' | 'cancelled'
+
+export interface PipelineStepSpec {
+  repository: string
+  name: string
+  command: string[]
+  timeout_minutes: number
+}
+
+export interface PipelineStepRun extends PipelineStepSpec {
+  index: number
+  status: PipelineStepStatus
+  started_at: string | null
+  finished_at: string | null
+  exit_code: number | null
+  log: string
+}
+
+export interface PipelineRun {
+  id: string
+  task_number: number
+  actor: string
+  status: PipelineStatus
+  started_at: string
+  finished_at: string | null
+  heads: Record<string, string>
+  steps: PipelineStepRun[]
+  error?: string
+}
+
+export interface PipelineConfig {
+  path: string
+  exists: boolean
+  text: string
+  steps: PipelineStepSpec[]
+}

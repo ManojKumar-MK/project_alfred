@@ -182,9 +182,35 @@ class CommitBody(BaseModel):
 
 
 class PushBody(BaseModel):
-    """``alfred worktree push``."""
+    """``alfred worktree push``, optionally opening a GitLab merge request."""
 
     repo: str = ""
+    merge_request: bool = False
+    title: str = Field(default="", max_length=255)
+    description: str = Field(default="", max_length=10_000)
+
+
+class ReviewCommentBody(ActorBody):
+    """A review comment on a line of a task's branch, or on a whole file."""
+
+    repository: str = Field(min_length=1, max_length=200)
+    path: str = Field(min_length=1, max_length=4096)
+    line: int | None = Field(default=None, ge=1)
+    side: Literal["old", "new"] = "new"
+    body: str = Field(min_length=1, max_length=20_000)
+
+
+class ReviewCommentUpdateBody(BaseModel):
+    """Edit, resolve, or reopen a review comment."""
+
+    body: str | None = Field(default=None, max_length=20_000)
+    resolved: bool | None = None
+
+
+class ReviewDecisionBody(ActorBody):
+    """Approve or request changes from the review screen."""
+
+    note: str = Field(default="", max_length=20_000)
 
 
 class RemoveWorktreesBody(ActorBody):
@@ -306,3 +332,9 @@ class LoginBody(BaseModel):
     """Access token supplied by the operator."""
 
     token: str
+
+
+class PipelinesConfigBody(BaseModel):
+    """The full text of ``pipelines.toml``."""
+
+    text: str = Field(max_length=200_000)

@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { computed } from 'vue'
-import { Activity, Bot, FileText, GitCompareArrows, LayoutList, ScrollText, SquareTerminal } from 'lucide-vue-next'
+import { Activity, Bot, FileText, GitCompareArrows, GitPullRequestArrow, LayoutList, ScrollText, SquareTerminal, Workflow } from 'lucide-vue-next'
 import type { TaskDetail } from '@/api/types'
 import { PHASE_META, PLANNING_LABELS, statusLabel, statusLamp } from '@/lib/status'
 import { useLive } from '@/stores/live'
@@ -14,6 +14,8 @@ import TaskPlan from './TaskPlan.vue'
 import TaskAgents from './TaskAgents.vue'
 import TaskTerminal from './TaskTerminal.vue'
 import TaskChanges from './TaskChanges.vue'
+import TaskReview from './TaskReview.vue'
+import TaskPipelines from './TaskPipelines.vue'
 import TaskActivity from './TaskActivity.vue'
 import TaskFiles from './TaskFiles.vue'
 
@@ -43,6 +45,14 @@ const tabs = computed(() => {
       badge: derived.value.session?.alive ? 'live' : null,
     },
     { key: 'changes', label: 'Changes', icon: GitCompareArrows, badge: changes || null, tone: 'brass' as const },
+    {
+      key: 'review',
+      label: 'Review',
+      icon: GitPullRequestArrow,
+      badge: task.value.status === 'MR in Review' && !derived.value.approved_since_last_work ? 'open' : null,
+      tone: 'brass' as const,
+    },
+    { key: 'pipelines', label: 'Pipelines', icon: Workflow },
     {
       key: 'activity',
       label: 'Activity',
@@ -94,6 +104,8 @@ const current = computed({
       <TaskAgents v-else-if="current === 'agents'" :detail="detail" />
       <TaskTerminal v-else-if="current === 'terminal'" :detail="detail" />
       <TaskChanges v-else-if="current === 'changes'" :detail="detail" />
+      <TaskReview v-else-if="current === 'review'" :detail="detail" @tab="current = $event" />
+      <TaskPipelines v-else-if="current === 'pipelines'" :detail="detail" />
       <TaskActivity v-else-if="current === 'activity'" :detail="detail" />
       <TaskFiles v-else-if="current === 'files'" :detail="detail" />
     </div>

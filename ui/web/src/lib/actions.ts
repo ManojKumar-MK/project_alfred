@@ -730,13 +730,50 @@ export const ACTIONS: Record<string, ActionSpec> = {
     submit: 'Push',
     tone: 'brass',
     description: () => 'Pushes the task branch to each repository’s configured remote. This is Alfred’s only network operation.',
-    fields: [{ key: 'repo', label: 'Worktree', kind: 'select', options: worktreeRepositoryOptions, initial: () => '' }],
+    fields: [
+      { key: 'repo', label: 'Worktree', kind: 'select', options: worktreeRepositoryOptions, initial: () => '' },
+      {
+        key: 'merge_request',
+        label: 'Open a merge request',
+        kind: 'toggle',
+        initial: () => false,
+        help: 'GitLab opens one against the default branch, or reuses the open one. The link appears in Review.',
+      },
+      {
+        key: 'title',
+        label: 'Merge request title',
+        kind: 'text',
+        initial: (context) => context.task?.title ?? '',
+        visible: (values) => flag(values, 'merge_request'),
+      },
+      {
+        key: 'description',
+        label: 'Description',
+        kind: 'textarea',
+        rows: 3,
+        visible: (values) => flag(values, 'merge_request'),
+      },
+    ],
     request: (values, context) => ({
       method: 'POST',
       path: taskPath(context, '/worktrees/push'),
-      body: { repo: text(values, 'repo') },
+      body: {
+        repo: text(values, 'repo'),
+        merge_request: flag(values, 'merge_request'),
+        title: flag(values, 'merge_request') ? text(values, 'title') : '',
+        description: flag(values, 'merge_request') ? text(values, 'description') : '',
+      },
     }),
-    command: (values, context) => alfredCommand('worktree', 'push', ['--task', number(context)], ['--repo', text(values, 'repo')]),
+    command: (values, context) =>
+      alfredCommand(
+        'worktree',
+        'push',
+        ['--task', number(context)],
+        ['--repo', text(values, 'repo')],
+        flag(values, 'merge_request') ? '--merge-request' : false,
+        ['--title', flag(values, 'merge_request') && text(values, 'title') !== (context.task?.title ?? '') ? text(values, 'title') : ''],
+        ['--description', flag(values, 'merge_request') ? text(values, 'description') : ''],
+      ),
     warning: (_, context) =>
       context.task?.derived.dirty ? 'Some worktrees have uncommitted changes; only committed work is pushed.' : null,
   },

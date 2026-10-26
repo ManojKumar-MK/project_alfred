@@ -78,7 +78,7 @@ def test_direct_run_completes_and_worktree_is_committed_and_pushed(
     assert "Unknown commit type" in bad_type.json()["error"]
     pushed = client.post("/api/tasks/1/worktrees/push", json={"repo": "app"})
     assert pushed.json()["pushed"] == [
-        {"repository": "app", "branch": "feature/task-1", "remote": "origin"}
+        {"repository": "app", "branch": "feature/task-1", "remote": "origin", "review_url": ""}
     ]
     after = client.get("/api/tasks/1/worktrees").json()["worktrees"][0]
     assert after["remote"]["exists"] is True
