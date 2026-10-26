@@ -70,6 +70,7 @@ function openTask(task: number) {
       <AppButton v-if="prefs.values.browserNotifications && alerts.permission.value === 'granted'" size="sm" tone="quiet" @click="alerts.testLater()">
         {{ alerts.countdown.value ? `Sending in ${alerts.countdown.value}s…` : 'Send a test' }}
       </AppButton>
+      <RouterLink to="/settings#preferences" class="small">Alerts not showing?</RouterLink>
     </header>
 
     <WorkspaceProblem />

@@ -52,7 +52,10 @@ from a shell or by an agent appear in the browser within a second, without reloa
 - **Inbox**: the bell in the top bar lists what needs you and what was acknowledged earlier, with
   unread marks you can clear. **Desktop alerts** (Notifications or Settings) raise a system
   notification for each new item while the Alfred tab is in the background; clicking one opens the
-  task. A splash screen with the Alfred mark shows until the first live update arrives.
+  task. If alerts never appear, **Settings › Preferences › Not seeing alerts?** walks through the
+  page permission, Chrome's flag for plain-`http` addresses, the macOS notification and Focus
+  settings, and a plain browser test that tells Alfred apart from the browser and macOS. A splash
+  screen with the Alfred mark shows until the first live update arrives.
 - **Agent sessions**: every tmux session under the workspace's prefix. Screen previews use
   `capture-pane`, so watching never attaches to or resizes an agent. You can open a terminal, send
   a message or keys, and close sessions that finished runs leave behind.

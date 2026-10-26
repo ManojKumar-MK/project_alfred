@@ -11,7 +11,7 @@ import { useToasts } from '@/stores/toasts'
 // The page can hold permission while the operating system still hides the browser's alerts.
 const TEST_DELAY_SECONDS = 5
 const OS_HINT =
-  'Allow alerts for your browser in System Settings › Notifications (choose Banners or Alerts), and check that a Focus mode such as Do Not Disturb is off.'
+  'Allow alerts for your browser in System Settings › Notifications (choose Banners or Alerts) and turn off Focus. Settings › Preferences has a step-by-step guide.'
 
 /** Raise a desktop notification for each new call while the page is hidden or unfocused. */
 export function useDesktopAlerts(): void {
