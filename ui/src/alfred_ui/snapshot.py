@@ -680,11 +680,19 @@ def _pending_completion_tasks(temp_directory: Path) -> set[int]:
     return numbers
 
 
-def _completion_counts(temp_directory: Path) -> dict[str, int]:
-    counts: dict[str, int] = {}
+def _completion_counts(temp_directory: Path) -> dict[str, Any]:
+    counts: dict[str, Any] = {}
     for bucket in COMPLETION_BUCKETS:
         directory = temp_directory / "completions" / bucket
         counts[bucket] = len(list(directory.glob("task-*.json"))) if directory.is_dir() else 0
+    # When the oldest report started waiting, so "waiting" calls keep a stable time.
+    pending = temp_directory / "completions" / "pending"
+    stamps = (
+        [path.stat().st_mtime for path in pending.glob("task-*.json")] if pending.is_dir() else []
+    )
+    counts["oldest_pending"] = (
+        datetime.fromtimestamp(min(stamps), UTC).isoformat(timespec="seconds") if stamps else None
+    )
     return counts
 
 

@@ -31,6 +31,7 @@ import type {
 import { absolute } from '@/lib/format'
 import { alfredCommand, shellJoin, shellQuote } from '@/lib/cli'
 import { splitCommand } from '@/lib/shellwords'
+import { useAlertSwitch } from '@/composables/useDesktopAlerts'
 import { errorMessage, useRequest } from '@/composables/useRequest'
 import { useLive } from '@/stores/live'
 import { usePrefs } from '@/stores/prefs'
@@ -52,6 +53,7 @@ import CodeEditor from '@/components/misc/CodeEditor.vue'
 const live = useLive()
 const prefs = usePrefs()
 const toasts = useToasts()
+const alerts = useAlertSwitch()
 const route = useRoute()
 const router = useRouter()
 
@@ -783,6 +785,12 @@ async function migrate() {
               label="Theme"
             />
           </FormField>
+          <div class="row">
+            <ToggleSwitch :model-value="prefs.values.browserNotifications" label="Desktop alerts" :help="alerts.help()" @update:model-value="alerts.toggle" />
+            <AppButton v-if="prefs.values.browserNotifications && alerts.permission.value === 'granted'" size="sm" tone="quiet" @click="alerts.test">
+              Send a test
+            </AppButton>
+          </div>
           <ToggleSwitch v-model="prefs.values.includeConfigInCommands" label="Include --config in shown commands" help="So copied commands work from any directory." />
           <p class="faint small mono">{{ prefs.values.includeConfigInCommands && live.snapshot?.workspace.config_path ? `alfred --config ${shellQuote(live.snapshot.workspace.config_path)} …` : 'alfred …' }}</p>
           <FormField label="Terminal text size" for-id="pref-font">

@@ -206,7 +206,7 @@ export const useLive = defineStore('live', () => {
           ? 'The coordinator will process them within seconds'
           : 'Run the coordinator to turn them into review notifications',
         tone: 'brass',
-        created: snapshot.value?.generated_at ?? '',
+        created: snapshot.value?.completions?.oldest_pending ?? snapshot.value?.generated_at ?? '',
       })
     }
     const order: Record<Call['kind'], number> = {

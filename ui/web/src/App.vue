@@ -2,6 +2,7 @@
 import { computed, onBeforeUnmount, onMounted, watch } from 'vue'
 import { useRoute } from 'vue-router'
 import { signInRequired } from '@/api/http'
+import { useDesktopAlerts } from '@/composables/useDesktopAlerts'
 import { startClock } from '@/lib/format'
 import { NOTIFICATION_META } from '@/lib/status'
 import { useDialogs } from '@/stores/dialogs'
@@ -22,7 +23,7 @@ import CommandPalette from '@/components/dialogs/CommandPalette.vue'
 import SignInView from '@/views/SignInView.vue'
 
 const live = useLive()
-const prefs = usePrefs()
+usePrefs() // Creating the store applies the remembered theme.
 const dialogs = useDialogs()
 const toasts = useToasts()
 const route = useRoute()
@@ -54,11 +55,27 @@ watch(
       const title = `${meta?.label ?? item.notification_type}: task ${item.task_number}`
       const detail = String(item.details.summary ?? item.details.message ?? '')
       toasts.push({ tone: item.notification_type === 'task_completed' ? 'brass' : 'error', title, detail, task: item.task_number }, 12000)
-      if (prefs.values.browserNotifications && 'Notification' in window && window.Notification.permission === 'granted') {
-        new window.Notification(title, { body: detail, tag: item.notification_id })
-      }
     }
   },
+)
+
+useDesktopAlerts()
+
+// Fade out the splash from index.html once there is something to show instead.
+const SPLASH_MINIMUM_MS = 450
+const ready = computed(() => live.snapshot !== null || signInRequired.value || live.connection === 'offline')
+watch(
+  ready,
+  (value) => {
+    if (!value) return
+    const splash = document.getElementById('splash')
+    if (!splash) return
+    window.setTimeout(() => {
+      splash.classList.add('done')
+      window.setTimeout(() => splash.remove(), 400)
+    }, Math.max(0, SPLASH_MINIMUM_MS - performance.now()))
+  },
+  { immediate: true },
 )
 
 function onKeydown(event: KeyboardEvent) {

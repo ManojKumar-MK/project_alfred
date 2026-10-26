@@ -290,7 +290,7 @@ export interface Snapshot {
   sessions?: SessionInfo[]
   coordinator?: { session_name: string; running: boolean }
   learner?: { session_name: string; running: boolean; agent: string }
-  completions?: { pending: number; processed: number; invalid: number }
+  completions?: { pending: number; processed: number; invalid: number; oldest_pending?: string | null }
   knowledge?: { total: number; by_task: Record<string, number> }
 }
 

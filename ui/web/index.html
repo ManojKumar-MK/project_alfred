@@ -6,8 +6,107 @@
     <meta name="color-scheme" content="light dark" />
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
     <title>Alfred</title>
+    <script>
+      // Apply a remembered light or dark theme before the splash paints.
+      try {
+        const theme = JSON.parse(localStorage.getItem('alfred-ui:preferences') || '{}').theme
+        if (theme === 'light' || theme === 'dark') document.documentElement.setAttribute('data-theme', theme)
+      } catch {}
+    </script>
+    <style>
+      #splash {
+        --splash-paper: #eef1ec;
+        --splash-ink: #1e2a2f;
+        --splash-faint: #5c6c71;
+        position: fixed;
+        inset: 0;
+        z-index: 1000;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        gap: 14px;
+        background: var(--splash-paper);
+        color: var(--splash-ink);
+        font-family: 'Archivo Variable', 'Archivo', ui-sans-serif, system-ui, -apple-system, 'Helvetica Neue', sans-serif;
+        transition: opacity 0.35s ease, visibility 0.35s;
+      }
+      @media (prefers-color-scheme: dark) {
+        :root:not([data-theme='light']) #splash {
+          --splash-paper: #1c2329;
+          --splash-ink: #e4e9e5;
+          --splash-faint: #93a19d;
+        }
+      }
+      :root[data-theme='dark'] #splash {
+        --splash-paper: #1c2329;
+        --splash-ink: #e4e9e5;
+        --splash-faint: #93a19d;
+      }
+      #splash.done {
+        opacity: 0;
+        visibility: hidden;
+      }
+      #splash .mark {
+        display: inline-flex;
+        gap: 9px;
+        padding: 15px;
+        border-radius: 21px;
+        background: #1f4e79;
+        box-shadow: 0 12px 32px rgb(31 78 121 / 0.28);
+      }
+      #splash .bulb {
+        width: 27px;
+        height: 27px;
+        border-radius: 50%;
+        animation: splash-pulse 1.4s ease-in-out infinite;
+      }
+      #splash .go {
+        background: #2e9e5b;
+      }
+      #splash .call {
+        background: #d4a64a;
+        animation-delay: 0.7s;
+      }
+      #splash .word {
+        margin: 4px 0 0;
+        font-size: 2rem;
+        font-weight: 800;
+        font-stretch: 125%;
+        letter-spacing: -0.02em;
+      }
+      #splash .note {
+        margin: 0;
+        font-size: 0.9rem;
+        color: var(--splash-faint);
+      }
+      @keyframes splash-pulse {
+        0%,
+        100% {
+          opacity: 1;
+          transform: scale(1);
+        }
+        50% {
+          opacity: 0.45;
+          transform: scale(0.82);
+        }
+      }
+      @media (prefers-reduced-motion: reduce) {
+        #splash .bulb {
+          animation: none;
+        }
+        #splash {
+          transition: none;
+        }
+      }
+    </style>
   </head>
   <body>
+    <div id="splash" role="status" aria-live="polite">
+      <span class="mark" aria-hidden="true"><span class="bulb go"></span><span class="bulb call"></span></span>
+      <p class="word">Alfred</p>
+      <p class="note">Connecting to your workspace…</p>
+    </div>
     <div id="app"></div>
     <script type="module" src="/src/main.ts"></script>
   </body>

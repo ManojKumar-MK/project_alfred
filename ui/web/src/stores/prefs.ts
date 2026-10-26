@@ -16,6 +16,8 @@ export interface Preferences {
   priorityFilter: string
   repositoryFilter: string
   browserNotifications: boolean
+  /** When the inbox was last marked read (ISO time); newer items count as unread. */
+  inboxReadAt: string
   terminalFontSize: number
   includeConfigInCommands: boolean
 }
@@ -32,6 +34,7 @@ const DEFAULTS: Preferences = {
   priorityFilter: '',
   repositoryFilter: '',
   browserNotifications: false,
+  inboxReadAt: '',
   terminalFontSize: 13,
   includeConfigInCommands: false,
 }

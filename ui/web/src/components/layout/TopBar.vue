@@ -7,6 +7,7 @@ import { usePrefs } from '@/stores/prefs'
 import { useDialogs } from '@/stores/dialogs'
 import LampDot from '@/components/base/LampDot.vue'
 import AppButton from '@/components/base/AppButton.vue'
+import InboxBell from './InboxBell.vue'
 
 const live = useLive()
 const prefs = usePrefs()
@@ -83,6 +84,7 @@ const learner = computed(() => live.snapshot?.learner)
       <span>Jump to a task or action</span>
       <kbd>⌘K</kbd>
     </button>
+    <InboxBell />
     <RouterLink to="/settings#preferences" class="actor" title="The actor recorded for your actions">
       Acting as <strong class="mono">{{ prefs.values.actor }}</strong>
     </RouterLink>
