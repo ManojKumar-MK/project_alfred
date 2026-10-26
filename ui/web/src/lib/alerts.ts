@@ -58,16 +58,20 @@ export function alertIcon(): string {
 }
 
 /** Show one call as a system notification; clicking it brings Alfred forward and runs ``onOpen``. */
-export function showAlert(call: Call, onOpen: (call: Call) => void): void {
-  const notification = new window.Notification(alertTitle(call), {
+export function showAlert(call: Call, onOpen: (call: Call) => void): Notification {
+  const options: NotificationOptions & { renotify?: boolean } = {
     body: call.detail,
     tag: `alfred:${call.key}`,
     icon: alertIcon(),
     requireInteraction: call.tone === 'danger',
-  })
+    // A call that cleared and came back replaces its old alert; announce it again.
+    renotify: true,
+  }
+  const notification = new window.Notification(alertTitle(call), options)
   notification.onclick = () => {
     window.focus()
     onOpen(call)
     notification.close()
   }
+  return notification
 }

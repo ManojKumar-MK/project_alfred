@@ -12,6 +12,10 @@ class FakeNotification {
   static shown: FakeNotification[] = []
   onclick: (() => void) | null = null
   close = vi.fn()
+  listeners: Record<string, () => void> = {}
+  addEventListener(type: string, listener: () => void) {
+    this.listeners[type] = listener
+  }
 
   constructor(
     public title: string,
@@ -77,10 +81,52 @@ describe('showAlert', () => {
     showAlert(makeCall({ tone: 'danger' }), (call) => opened.push(call))
     const [shown] = FakeNotification.shown
     expect(shown.title).toBe('Review needed: task 7')
-    expect(shown.options).toMatchObject({ body: 'Done', tag: 'alfred:review:7', requireInteraction: true })
+    expect(shown.options).toMatchObject({ body: 'Done', tag: 'alfred:review:7', requireInteraction: true, renotify: true })
     shown.onclick?.()
     expect(focus).toHaveBeenCalled()
     expect(opened.map((call) => call.key)).toEqual(['review:7'])
     expect(shown.close).toHaveBeenCalled()
+  })
+})
+
+describe('useAlertSwitch test alert', () => {
+  async function setup(permission: NotificationPermission) {
+    const { createPinia, setActivePinia } = await import('pinia')
+    setActivePinia(createPinia())
+    installNotification(permission)
+    vi.spyOn(HTMLCanvasElement.prototype, 'getContext').mockReturnValue(null)
+    const { useAlertSwitch } = await import('@/composables/useDesktopAlerts')
+    const { useToasts } = await import('@/stores/toasts')
+    return { alerts: useAlertSwitch(), toasts: useToasts() }
+  }
+
+  it('uses a fresh tag each time and confirms when the browser shows it', async () => {
+    const { alerts, toasts } = await setup('granted')
+    alerts.test()
+    alerts.test()
+    const [first, second] = FakeNotification.shown
+    expect(first.options.tag).not.toBe(second.options.tag)
+    first.listeners.show()
+    expect(toasts.items.at(-1)?.title).toBe('Test alert sent to your system')
+  })
+
+  it('explains the system settings when nothing is shown', async () => {
+    vi.useFakeTimers()
+    try {
+      const { alerts, toasts } = await setup('granted')
+      alerts.test()
+      vi.advanceTimersByTime(4000)
+      expect(toasts.items.at(-1)).toMatchObject({ tone: 'error', title: 'The browser did not show the test alert' })
+      expect(toasts.items.at(-1)?.detail).toContain('System Settings')
+    } finally {
+      vi.useRealTimers()
+    }
+  })
+
+  it('reports a blocked permission instead of sending', async () => {
+    const { alerts, toasts } = await setup('denied')
+    alerts.test()
+    expect(FakeNotification.shown).toHaveLength(0)
+    expect(toasts.items.at(-1)?.title).toBe('Notifications are not allowed for this page')
   })
 })
