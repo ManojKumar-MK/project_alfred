@@ -3,6 +3,7 @@ import { computed, onBeforeUnmount, onMounted, watch } from 'vue'
 import { useRoute } from 'vue-router'
 import { signInRequired } from '@/api/http'
 import { useDesktopAlerts } from '@/composables/useDesktopAlerts'
+import { setTabBadge } from '@/lib/alerts'
 import { startClock } from '@/lib/format'
 import { NOTIFICATION_META } from '@/lib/status'
 import { useDialogs } from '@/stores/dialogs'
@@ -37,6 +38,9 @@ watch(
   },
   { immediate: true },
 )
+
+// Everything waiting, including workspace-wide calls, shows on the tab icon.
+watch(() => live.calls.length, setTabBadge, { immediate: true })
 
 // Announce new notifications as they arrive: a toast, and a desktop alert when enabled.
 const announced = new Set<string>()

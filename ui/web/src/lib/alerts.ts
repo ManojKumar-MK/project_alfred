@@ -28,33 +28,55 @@ export function alertTitle(call: Call): string {
 
 let icon: string | null = null
 
-/** The Alfred mark as a PNG data URL, since not every notification center renders SVG icons. */
-export function alertIcon(): string {
-  if (icon !== null) return icon
-  icon = '/favicon.svg'
+/** Draw the Alfred mark, optionally with a red count badge, as a PNG data URL (or ``null``). */
+function drawMark(size: number, badge = 0): string | null {
   try {
     const canvas = document.createElement('canvas')
-    canvas.width = 128
-    canvas.height = 128
+    canvas.width = size
+    canvas.height = size
     const context = canvas.getContext('2d')
-    if (context) {
-      context.scale(4, 4)
-      context.fillStyle = '#1F4E79'
+    if (!context) return null
+    context.scale(size / 32, size / 32)
+    context.fillStyle = '#1F4E79'
+    context.beginPath()
+    context.roundRect(0, 0, 32, 32, 7)
+    context.fill()
+    for (const [x, color] of [[11, '#2E9E5B'], [21, '#D4A64A']] as const) {
+      context.fillStyle = color
       context.beginPath()
-      context.roundRect(0, 0, 32, 32, 7)
+      context.arc(x, 16, 4.5, 0, Math.PI * 2)
       context.fill()
-      for (const [x, color] of [[11, '#2E9E5B'], [21, '#D4A64A']] as const) {
-        context.fillStyle = color
-        context.beginPath()
-        context.arc(x, 16, 4.5, 0, Math.PI * 2)
-        context.fill()
-      }
-      icon = canvas.toDataURL('image/png')
     }
+    if (badge > 0) {
+      context.fillStyle = '#D33B2C'
+      context.beginPath()
+      context.arc(23, 9, 9, 0, Math.PI * 2)
+      context.fill()
+      context.fillStyle = '#FFFFFF'
+      context.font = 'bold 13px system-ui, sans-serif'
+      context.textAlign = 'center'
+      context.textBaseline = 'middle'
+      context.fillText(badge > 9 ? '9+' : String(badge), 23, 9.5)
+    }
+    return canvas.toDataURL('image/png')
   } catch {
-    /* Keep the SVG favicon. */
+    return null
   }
+}
+
+/** The Alfred mark as a PNG data URL, since not every notification center renders SVG icons. */
+export function alertIcon(): string {
+  icon ??= drawMark(128) ?? '/favicon.svg'
   return icon
+}
+
+/** Show ``count`` on the tab's icon, so waiting work is visible from any other tab. */
+export function setTabBadge(count: number): void {
+  const link = document.querySelector<HTMLLinkElement>('link[rel="icon"]')
+  if (!link) return
+  const badged = count > 0 ? drawMark(64, count) : null
+  link.type = badged ? 'image/png' : 'image/svg+xml'
+  link.href = badged ?? '/favicon.svg'
 }
 
 /** Show one call as a system notification; clicking it brings Alfred forward and runs ``onOpen``. */

@@ -67,8 +67,8 @@ function openTask(task: number) {
         :help="alerts.help()"
         @update:model-value="alerts.toggle"
       />
-      <AppButton v-if="prefs.values.browserNotifications && alerts.permission.value === 'granted'" size="sm" tone="quiet" @click="alerts.test">
-        Send a test
+      <AppButton v-if="prefs.values.browserNotifications && alerts.permission.value === 'granted'" size="sm" tone="quiet" @click="alerts.testLater()">
+        {{ alerts.countdown.value ? `Sending in ${alerts.countdown.value}s…` : 'Send a test' }}
       </AppButton>
     </header>
 

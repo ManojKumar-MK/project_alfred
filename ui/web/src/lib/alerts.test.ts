@@ -130,3 +130,40 @@ describe('useAlertSwitch test alert', () => {
     expect(toasts.items.at(-1)?.title).toBe('Notifications are not allowed for this page')
   })
 })
+
+describe('setTabBadge', () => {
+  it('falls back to the plain favicon when nothing waits or canvas is unavailable', async () => {
+    const { setTabBadge } = await import('./alerts')
+    document.head.innerHTML = '<link rel="icon" type="image/svg+xml" href="/favicon.svg" />'
+    vi.spyOn(HTMLCanvasElement.prototype, 'getContext').mockReturnValue(null)
+    setTabBadge(3)
+    const link = document.querySelector<HTMLLinkElement>('link[rel="icon"]')!
+    expect([link.getAttribute('href'), link.type]).toEqual(['/favicon.svg', 'image/svg+xml'])
+    setTabBadge(0)
+    expect(link.getAttribute('href')).toBe('/favicon.svg')
+  })
+})
+
+describe('testLater', () => {
+  it('counts down before sending, so there is time to switch tabs', async () => {
+    vi.useFakeTimers()
+    try {
+      const { createPinia, setActivePinia } = await import('pinia')
+      setActivePinia(createPinia())
+      installNotification('granted')
+      vi.spyOn(HTMLCanvasElement.prototype, 'getContext').mockReturnValue(null)
+      const { useAlertSwitch } = await import('@/composables/useDesktopAlerts')
+      const alerts = useAlertSwitch()
+      alerts.testLater(3)
+      alerts.testLater(3)
+      expect(alerts.countdown.value).toBe(3)
+      vi.advanceTimersByTime(2000)
+      expect(FakeNotification.shown).toHaveLength(0)
+      vi.advanceTimersByTime(1000)
+      expect(alerts.countdown.value).toBe(0)
+      expect(FakeNotification.shown).toHaveLength(1)
+    } finally {
+      vi.useRealTimers()
+    }
+  })
+})

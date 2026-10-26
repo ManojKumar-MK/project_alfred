@@ -10,6 +10,7 @@ import { useToasts } from '@/stores/toasts'
 
 // The page can hold permission while the operating system still hides the browser's alerts.
 let testCount = 0
+const TEST_DELAY_SECONDS = 5
 const OS_HINT =
   'Allow alerts for your browser in System Settings › Notifications (choose Banners or Alerts), and check that a Focus mode such as Do Not Disturb is off.'
 
@@ -94,6 +95,22 @@ export function useAlertSwitch() {
     })
   }
 
+  /** Seconds left before a delayed test, so there is time to switch to another tab or app. */
+  const countdown = ref(0)
+  let countdownTimer: number | undefined
+
+  function testLater(seconds = TEST_DELAY_SECONDS) {
+    if (countdown.value) return
+    countdown.value = seconds
+    toasts.push({ tone: 'info', title: `Test alert in ${seconds} seconds`, detail: 'Switch to another tab or app now to see it arrive.' }, seconds * 1000)
+    countdownTimer = window.setInterval(() => {
+      countdown.value -= 1
+      if (countdown.value > 0) return
+      window.clearInterval(countdownTimer)
+      test()
+    }, 1000)
+  }
+
   const help = () =>
     permission.value === 'denied'
       ? "Blocked by the browser. Allow notifications in this site's settings."
@@ -101,5 +118,5 @@ export function useAlertSwitch() {
         ? 'Not supported by this browser.'
         : 'Alert me when something needs me while this tab is in the background.'
 
-  return { permission, toggle, test, help }
+  return { permission, toggle, test, testLater, countdown, help }
 }

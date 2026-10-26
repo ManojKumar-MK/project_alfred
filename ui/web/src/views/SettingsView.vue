@@ -787,8 +787,8 @@ async function migrate() {
           </FormField>
           <div class="row">
             <ToggleSwitch :model-value="prefs.values.browserNotifications" label="Desktop alerts" :help="alerts.help()" @update:model-value="alerts.toggle" />
-            <AppButton v-if="prefs.values.browserNotifications && alerts.permission.value === 'granted'" size="sm" tone="quiet" @click="alerts.test">
-              Send a test
+            <AppButton v-if="prefs.values.browserNotifications && alerts.permission.value === 'granted'" size="sm" tone="quiet" @click="alerts.testLater()">
+              {{ alerts.countdown.value ? `Sending in ${alerts.countdown.value}s…` : 'Send a test' }}
             </AppButton>
           </div>
           <ToggleSwitch v-model="prefs.values.includeConfigInCommands" label="Include --config in shown commands" help="So copied commands work from any directory." />
