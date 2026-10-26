@@ -9,7 +9,6 @@ import { usePrefs } from '@/stores/prefs'
 import { useToasts } from '@/stores/toasts'
 
 // The page can hold permission while the operating system still hides the browser's alerts.
-let testCount = 0
 const TEST_DELAY_SECONDS = 5
 const OS_HINT =
   'Allow alerts for your browser in System Settings › Notifications (choose Banners or Alerts), and check that a Focus mode such as Do Not Disturb is off.'
@@ -76,8 +75,7 @@ export function useAlertSwitch() {
     let notification: Notification
     try {
       notification = showAlert(
-        // A fresh key per test, so a repeat test is shown again instead of silently replacing the last one.
-        { key: `test:${++testCount}`, task: null, kind: 'problem', label: 'Desktop alerts work', detail: 'Alfred will alert you like this when something needs you.', tone: 'brass', created: '' },
+        { key: 'test', task: null, kind: 'problem', label: 'Desktop alerts work', detail: 'Alfred will alert you like this when something needs you.', tone: 'brass', created: '' },
         () => undefined,
       )
     } catch (error) {

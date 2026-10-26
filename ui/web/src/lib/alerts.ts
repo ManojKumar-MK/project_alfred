@@ -26,8 +26,6 @@ export function alertTitle(call: Call): string {
   return call.task === null ? call.label : `${call.label}: task ${call.task}`
 }
 
-let icon: string | null = null
-
 /** Draw the Alfred mark, optionally with a red count badge, as a PNG data URL (or ``null``). */
 function drawMark(size: number, badge = 0): string | null {
   try {
@@ -64,12 +62,6 @@ function drawMark(size: number, badge = 0): string | null {
   }
 }
 
-/** The Alfred mark as a PNG data URL, since not every notification center renders SVG icons. */
-export function alertIcon(): string {
-  icon ??= drawMark(128) ?? '/favicon.svg'
-  return icon
-}
-
 /** Show ``count`` on the tab's icon, so waiting work is visible from any other tab. */
 export function setTabBadge(count: number): void {
   const link = document.querySelector<HTMLLinkElement>('link[rel="icon"]')
@@ -79,17 +71,22 @@ export function setTabBadge(count: number): void {
   link.href = badged ?? '/favicon.svg'
 }
 
-/** Show one call as a system notification; clicking it brings Alfred forward and runs ``onOpen``. */
+let shownCount = 0
+
+/**
+ * Show one call as a system notification; clicking it brings Alfred forward and runs ``onOpen``.
+ *
+ * Only a title, body, and tag are set. On macOS, Chrome routes notifications that ask to stay on
+ * screen (``requireInteraction``) through its separate "Google Chrome (Alerts)" entry, which is
+ * often switched off, and the alert then vanishes without an error. Each alert gets its own tag,
+ * so a call that comes back is announced instead of silently replacing its old alert.
+ */
 export function showAlert(call: Call, onOpen: (call: Call) => void): Notification {
-  const options: NotificationOptions & { renotify?: boolean } = {
+  shownCount += 1
+  const notification = new window.Notification(alertTitle(call), {
     body: call.detail,
-    tag: `alfred:${call.key}`,
-    icon: alertIcon(),
-    requireInteraction: call.tone === 'danger',
-    // A call that cleared and came back replaces its old alert; announce it again.
-    renotify: true,
-  }
-  const notification = new window.Notification(alertTitle(call), options)
+    tag: `alfred:${call.key}:${shownCount}`,
+  })
   notification.onclick = () => {
     window.focus()
     onOpen(call)

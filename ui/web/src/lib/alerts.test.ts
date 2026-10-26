@@ -81,7 +81,10 @@ describe('showAlert', () => {
     showAlert(makeCall({ tone: 'danger' }), (call) => opened.push(call))
     const [shown] = FakeNotification.shown
     expect(shown.title).toBe('Review needed: task 7')
-    expect(shown.options).toMatchObject({ body: 'Done', tag: 'alfred:review:7', requireInteraction: true, renotify: true })
+    // Only what Chrome on macOS shows reliably: no requireInteraction, renotify, or icon.
+    expect(Object.keys(shown.options).sort()).toEqual(['body', 'tag'])
+    expect(shown.options.body).toBe('Done')
+    expect(shown.options.tag).toMatch(/^alfred:review:7:\d+$/)
     shown.onclick?.()
     expect(focus).toHaveBeenCalled()
     expect(opened.map((call) => call.key)).toEqual(['review:7'])
