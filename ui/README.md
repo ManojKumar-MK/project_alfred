@@ -34,9 +34,25 @@ from a shell or by an agent appear in the browser within a second, without reloa
   - **Terminal**: the agent's tmux session in the browser, either interactive or watch only.
   - **Changes**: each worktree's status, diff, commits, ahead/behind counts, and remote branch,
     with buttons to create, commit, push, and remove worktrees.
+  - **Review**: a pull-request view of the task branch against the remote default branch (for
+    example `origin/master`): a file tree, unified or side-by-side diffs, and comments on any line
+    or file that you can reply to, edit, resolve, and reopen. **Approve** records
+    `alfred task review --decision approved`. **Request changes** records the review and gives
+    the agent every open comment: pasted into its live session, or, when the run has finished,
+    by reopening the run, whose new prompt includes the feedback. **Push and open MR** pushes with
+    `--merge-request`, and the merge request link is kept here for **Record merge**. Comments live
+    under `.alfred/tmp/ui/reviews`.
+  - **Pipelines**: checks you declare in `.alfred/pipelines.toml` (edit it under **Configure
+    steps**) run in the task's worktrees, with live logs per step. Each step is an argument array,
+    never a shell string; a repository's steps stop at its first failure, and a step that runs past
+    `timeout_minutes` is stopped. The Review tab shows the latest result.
   - **Activity**: the task's full event history.
   - **Files**: the prompts sent to the agent, completion reports, saved transcripts, tracker rows,
     and knowledge entries.
+- **Inbox**: the bell in the top bar lists what needs you and what was acknowledged earlier, with
+  unread marks you can clear. **Desktop alerts** (Notifications or Settings) raise a system
+  notification for each new item while the Alfred tab is in the background; clicking one opens the
+  task. A splash screen with the Alfred mark shows until the first live update arrives.
 - **Agent sessions**: every tmux session under the workspace's prefix. Screen previews use
   `capture-pane`, so watching never attaches to or resizes an agent. You can open a terminal, send
   a message or keys, and close sessions that finished runs leave behind.

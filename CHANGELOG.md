@@ -22,6 +22,11 @@ claim Semantic Versioning compatibility until its first supported release.
   transcripts are also saved on stop and completion and offered to the learner.
 - Per-task `--model` with a `{model}` command placeholder, and editable per-phase skills
   (`alfred skill`).
+- `worktree push --merge-request` opens a GitLab merge request with push options and prints the
+  review link the remote reports.
+- UI: a pull-request review tab with line comments, approve, and request changes that hands the
+  comments to the agent; local pipelines from `pipelines.toml` with live step logs; an inbox bell;
+  desktop alerts for every "needs you" item; and a splash screen.
 
 ### Fixed
 
