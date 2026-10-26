@@ -205,3 +205,11 @@ class KnowledgeEntry:
     agent: str = ""
     related_files: tuple[str, ...] = ()
     related_repositories: tuple[str, ...] = ()
+
+
+@dataclass(frozen=True, slots=True)
+class MergeRequestOptions:
+    """Ask a GitLab remote to open a merge request for a pushed task branch."""
+
+    title: str = ""
+    description: str = ""

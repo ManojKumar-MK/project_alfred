@@ -11,7 +11,7 @@ from alfred.adapters.git.commits import CommitResult, PushResult
 from alfred.adapters.git.worktrees import WorktreeStatus
 from alfred.cli.run_commands import handle_run, handle_worktree
 from alfred.domain.constants import CompletionStatus, RunStatus, TaskStatus
-from alfred.domain.models import AgentRun, CompletionReport, Task
+from alfred.domain.models import AgentRun, CompletionReport, MergeRequestOptions, Task
 
 
 class FakeRuns:
@@ -64,8 +64,13 @@ class FakeCommits:
     def commit(self, task_number, commit_type, message, *, repository=None):
         return (CommitResult("app", "abc123", "[PATCH] Small change"),)
 
-    def push(self, task_number, *, repository=None):
-        return (PushResult("app", "origin", "feature/x"),)
+    def __init__(self) -> None:
+        self.merge_requests = []
+
+    def push(self, task_number, *, repository=None, merge_request=None):
+        self.merge_requests.append(merge_request)
+        links = ("https://git.example.invalid/app/-/merge_requests/3",) if merge_request else ()
+        return (PushResult("app", "origin", "feature/x", links),)
 
 
 class RunCommandTests(unittest.TestCase):
@@ -116,8 +121,26 @@ class RunCommandTests(unittest.TestCase):
             repo=None,
         )
         self.assertIn("abc123", self.output(handle_worktree, commit, services)[1])
-        push = Namespace(action="push", task=7, repo=None)
+        push = Namespace(
+            action="push", task=7, repo=None, merge_request=False, title="", description=""
+        )
         self.assertIn("origin", self.output(handle_worktree, push, services)[1])
+        self.assertIsNone(services.commits.merge_requests[-1])
+
+    def test_worktree_push_can_open_a_merge_request_titled_after_the_task(self) -> None:
+        services = SimpleNamespace(
+            tasks=SimpleNamespace(require=lambda number: Task(number, "Example", "Details")),
+            commits=FakeCommits(),
+        )
+        push = Namespace(
+            action="push", task=7, repo=None, merge_request=True, title="", description="Why"
+        )
+        output = self.output(handle_worktree, push, services)[1]
+        self.assertEqual(
+            services.commits.merge_requests,
+            [MergeRequestOptions(title="Example", description="Why")],
+        )
+        self.assertIn("app: review https://git.example.invalid/app/-/merge_requests/3", output)
 
     def test_run_lifecycle_actions_render_results(self) -> None:
         runs = FakeRuns()

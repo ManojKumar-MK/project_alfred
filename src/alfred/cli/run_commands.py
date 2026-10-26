@@ -5,6 +5,7 @@ import sys
 
 from alfred.bootstrap import AlfredServices
 from alfred.domain.constants import RunStatus, TaskStatus
+from alfred.domain.models import MergeRequestOptions
 
 
 def handle_run(args: argparse.Namespace, services: AlfredServices) -> int:
@@ -152,9 +153,17 @@ def handle_worktree(args: argparse.Namespace, services: AlfredServices) -> int:
             print(f"{result.repository}: {result.revision} {result.message}")
         return 0
     if args.action == "push":
-        push_results = services.commits.push(args.task, repository=args.repo)
+        merge_request = None
+        if args.merge_request:
+            title = args.title.strip() or services.tasks.require(args.task).title
+            merge_request = MergeRequestOptions(title=title, description=args.description)
+        push_results = services.commits.push(
+            args.task, repository=args.repo, merge_request=merge_request
+        )
         for push_result in push_results:
             print(f"{push_result.repository}: pushed {push_result.branch} to {push_result.remote}")
+            if push_result.review_url:
+                print(f"{push_result.repository}: review {push_result.review_url}")
         return 0
     raise ValueError(f"Unsupported worktree action: {args.action}")
 

@@ -330,6 +330,18 @@ Commit stages all changes in each selected dirty task worktree and applies the c
 as `[FEATURE]`. A clean worktree prints `Nothing to commit`. Push is the only Alfred operation that
 mutates a remote and always names the configured remote and current branch explicitly.
 
+To open a merge request on a GitLab remote in the same step, add `--merge-request`:
+
+```console
+alfred worktree push --task 42 --repo app --merge-request --title "Add health endpoint"
+```
+
+Alfred passes GitLab's `merge_request.create` and `merge_request.target=<default branch>` push
+options (plus `title` and `description` when given; the title defaults to the task title). GitLab
+opens the merge request, or reuses the open one for the branch, and Alfred prints the link it
+reports. Any merge or pull request link a remote prints after a plain push, such as Bitbucket's or
+GitHub's, is printed too. No API token is involved.
+
 Cleanup is currently available through `run stop --cleanup yes`; perform it before making the run
 terminal. If a completed task still has a worktree, inspect and remove it with Git only after the
 branch and uncommitted work have been reviewed. Terminal session and worktree cleanup limitations

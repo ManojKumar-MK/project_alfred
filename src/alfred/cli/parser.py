@@ -222,6 +222,13 @@ def _worktree_parser(resources: argparse._SubParsersAction[argparse.ArgumentPars
     push = actions.add_parser("push")
     push.add_argument("--task", type=int, required=True)
     push.add_argument("--repo")
+    push.add_argument(
+        "--merge-request",
+        action="store_true",
+        help="ask a GitLab remote to open a merge request against the default branch",
+    )
+    push.add_argument("--title", default="", help="merge request title (default: task title)")
+    push.add_argument("--description", default="", help="merge request description")
 
 
 def _sync_parser(resources: argparse._SubParsersAction[argparse.ArgumentParser]) -> None:
